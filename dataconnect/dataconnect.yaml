@@ -1,0 +1,12 @@
+specVersion: "v1"
+serviceId: "KrishiSarathi-Agents:Backend"
+location: "us-central1"
+schema:
+  source: "./schema"
+  datasource:
+    postgresql:
+      database: "fdcdb"
+      cloudSql:
+        instanceId: "krishisarathi-agents:backend-fdc"
+      # schemaValidation: "COMPATIBLE"
+connectorDirs: ["./connector"]

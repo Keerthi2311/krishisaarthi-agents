@@ -1,0 +1,41 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Environment Variables
+# .env
+# .env.local
+# .env.*.local
+
+# Firebase
+.firebase/
+firebase-debug.log
+functions/.runtimeconfig.json
+
+# TypeScript Build
+functions/lib/
+*.js
+*.js.map
+*.d.ts
+*.d.ts.map
+
+# Keep config files
+!.eslintrc.js
+!*.config.js
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Credentials
+**/serviceAccountKey.json
+**/firebase-adminsdk-*.json
+credentials.json

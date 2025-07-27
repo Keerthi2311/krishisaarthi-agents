@@ -1,0 +1,55 @@
+type User @table {
+  displayName: String!
+  createdAt: Timestamp!
+  email: String
+  photoUrl: String
+}
+
+type Farm @table {
+  name: String!
+  createdAt: Timestamp!
+  locationString: String!
+  sizeAcres: Float
+  soilTypeDescription: String
+  user: User!
+}
+
+type CropType @table {
+  name: String!
+  createdAt: Timestamp!
+  idealGrowingConditions: String
+  commonPestsDiseases: String
+  typicalYieldRange: String
+}
+
+type Field @table {
+  name: String!
+  createdAt: Timestamp!
+  farm: Farm!
+  sizeAcres: Float
+  currentCropType: CropType
+  lastPlantedDate: Date
+  expectedHarvestDate: Date
+}
+
+type FarmAsset @table {
+  name: String!
+  assetType: String!
+  createdAt: Timestamp!
+  farm: Farm!
+  description: String
+  lastMaintenanceDate: Timestamp
+  numberOfUnits: Int
+  healthStatus: String
+}
+
+type AgentInteraction @table {
+  queryText: String!
+  responseText: String!
+  interactionType: String!
+  createdAt: Timestamp!
+  user: User!
+  relatedFarm: Farm
+  relatedField: Field
+  relatedFarmAsset: FarmAsset
+}

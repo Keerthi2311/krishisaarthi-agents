@@ -1,0 +1,28 @@
+{
+  "name": "krishisaarthi",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "export": "next build && next export",
+    "deploy": "npm run export && firebase deploy",
+    "deploy:functions": "firebase deploy --only functions",
+    "deploy:hosting": "npm run export && firebase deploy --only hosting",
+    "emulate": "firebase emulators:start"
+  },
+  "dependencies": {
+    "next": "^14.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "firebase": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "typescript": "^5"
+  }
+}
