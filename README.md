@@ -191,15 +191,49 @@ curl -X POST https://us-central1-krishisaarathi.cloudfunctions.net/api/query \
 **Response**:
 ```json
 {
-  "text": "Your tomato plants are showing signs of nutrient deficiency...",
-  "audioUrl": "https://storage.googleapis.com/audio/response.mp3",
-  "intent": "disease",
-  "priority": "medium",
-  "additionalData": {
-    "treatment": ["Apply nitrogen fertilizer", "Check soil pH"],
-    "cost": "₹300-500"
+  "answer": {
+    "text": "Your tomato plants are showing signs of nutrient deficiency. The yellowing leaves indicate a lack of nitrogen. Here's what you need to do: 1) Apply nitrogen-rich fertilizer immediately, 2) Check soil pH levels, 3) Ensure proper drainage. The treatment should cost around ₹300-500 and you should see improvement in 7-10 days.",
+    "audioUrl": "https://storage.googleapis.com/audio/response.mp3",
+    "intent": "disease",
+    "priority": "medium",
+    "additionalData": {
+      "treatment": ["Apply nitrogen fertilizer", "Check soil pH", "Improve drainage"],
+      "cost": "₹300-500"
+    },
+    "timestamp": "2025-07-27T01:34:34.114Z"
   },
-  "timestamp": "2025-07-27T01:34:34.114Z"
+  "recommendations": {
+    "contextual": {
+      "weatherAlerts": [
+        "Monitor weather conditions for farming decisions",
+        "Check 7-day weather forecast for farming activities"
+      ],
+      "cropCare": [
+        "Monitor your crops daily for early disease detection",
+        "Maintain proper plant spacing to prevent disease spread",
+        "Focus on tomato specific care during this season"
+      ],
+      "marketTips": [
+        "Stay updated with local market prices"
+      ],
+      "schemes": [
+        "PM-KISAN scheme verification deadline approaching",
+        "Crop insurance enrollment period is active"
+      ],
+      "relatedActions": [
+        "Consider organic pesticides for long-term crop health",
+        "Schedule regular soil testing to prevent nutrient deficiency",
+        "Follow up on the nitrogen fertilizer treatment in 3-5 days"
+      ]
+    },
+    "profileBased": {
+      "crops": ["tomato", "rice", "wheat"],
+      "location": "Davanagere, Karnataka",
+      "farmSize": "5.5 acres"
+    },
+    "recentActivityCount": 3,
+    "generatedAt": "2025-07-27T01:34:34.114Z"
+  }
 }
 ```
 
@@ -219,6 +253,29 @@ curl -X POST https://us-central1-krishisaarathi.cloudfunctions.net/api/users \
   }
 }'
 ```
+
+### 🎯 Enhanced Query Response Structure
+
+The `/query` endpoint now provides a comprehensive response with two main sections:
+
+#### 1. **Primary Answer** (`answer` object)
+- **Direct response** to the user's specific question
+- **Detailed solution** with step-by-step guidance
+- **Audio response** for voice interaction
+- **Priority level** and additional treatment data
+- **Intent classification** for proper agent routing
+
+#### 2. **Contextual Recommendations** (`recommendations` object)
+- **Smart suggestions** based on the user's query and profile
+- **Weather alerts** relevant to farming activities
+- **Crop care tips** specific to user's crops
+- **Market insights** for better pricing decisions
+- **Government schemes** and related actions
+- **Profile-based customization** using user's farming data
+
+This dual-structure ensures users get:
+1. **Immediate answers** to their urgent farming questions
+2. **Proactive guidance** to prevent future issues and optimize farming
 
 ## 🔧 Technical Stack
 
