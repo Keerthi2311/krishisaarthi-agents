@@ -1,5 +1,6 @@
 import { textModel } from '../config/gemini';
 import { ProfileContextAgent } from './profileAgent';
+import { weatherService } from '../services/weather';
 
 export class IrrigationAdvisorAgent {
   private profileAgent = new ProfileContextAgent();
@@ -10,64 +11,80 @@ export class IrrigationAdvisorAgent {
     schedule: string[];
     moistureLevel: string;
     waterRequirement: string;
+    weatherData: any;
   }> {
     try {
       const profile = await this.profileAgent.fetchUserProfile(uid);
       if (!profile) throw new Error('User profile not found');
 
-      // Get weather data (mock implementation)
-      const weatherData = await this.fetchWeatherData(profile.district);
+      // Get real weather data using the weather service
+      const weatherData = await weatherService.getWeatherData(
+        profile.district || 'Davanagere'
+      );
+      
+      // Get irrigation recommendations based on weather and crop data
+      const primaryCrop = profile.cropsGrown?.[0] || 'mixed crops';
+      const irrigationAnalysis = weatherService.getIrrigationRecommendations(weatherData, primaryCrop);
       
       const contextPrompt = this.profileAgent.generateContextPrompt(profile);
       
       const irrigationPrompt = `
 ${contextPrompt}
 
-TASK: Provide comprehensive irrigation advice based on current conditions.
+TASK: Provide comprehensive irrigation advice based on current weather conditions and 7-day forecast.
 
-Current Weather Data for ${profile.district}:
-${JSON.stringify(weatherData, null, 2)}
+REAL WEATHER DATA for ${profile.district}:
+Current Conditions:
+- Temperature: ${weatherData.current.temperature.toFixed(1)}°C
+- Humidity: ${weatherData.current.humidity.toFixed(1)}%
+- Recent Rainfall: ${weatherData.current.rainfall.toFixed(1)}mm
+- Wind Speed: ${weatherData.current.windSpeed.toFixed(1)} km/h
+- Atmospheric Pressure: ${weatherData.current.pressure.toFixed(0)} hPa
+- UV Index: ${weatherData.current.uvIndex.toFixed(1)}
+- Weather Condition: ${weatherData.current.condition}
 
-${query ? `Farmer's Query: "${query}"` : 'Farmers Query: "General irrigation advice needed"'}
+7-DAY WEATHER FORECAST:
+${weatherData.forecast.map((day, index) => `
+Day ${index + 1} (${day.date}):
+- Temperature: ${day.temperature.min.toFixed(1)}°C to ${day.temperature.max.toFixed(1)}°C
+- Expected Rainfall: ${day.rainfall.toFixed(1)}mm (${day.precipitationProbability}% chance)
+- Humidity: ${day.humidity.toFixed(1)}%
+- Condition: ${day.condition}
+`).join('')}
 
-IRRIGATION ANALYSIS REQUIREMENTS:
-1. Consider the farmer's soil type (${profile.soilType}) and its water retention
-2. Analyze current weather patterns and upcoming forecast
-3. Factor in the water needs of their crops: ${profile.cropsGrown.join(', ')}
-4. Consider their irrigation method: ${profile.irrigationType}
-5. Account for farm size: ${profile.landSize} ${profile.landUnit}
+AI IRRIGATION ANALYSIS:
+- Should irrigate today: ${irrigationAnalysis.shouldIrrigate ? 'YES' : 'NO'}
+- Recommended schedule: ${irrigationAnalysis.schedule.join(', ')}
+- Water requirement: ${irrigationAnalysis.waterRequirement}
+- Weather reasoning: ${irrigationAnalysis.reasoning}
+
+FARMER'S QUERY: "${query || 'General irrigation advice needed'}"
 
 RESPONSE FORMAT:
 Provide detailed irrigation guidance covering:
-- Current soil moisture assessment
-- Daily water requirements for next 7 days
-- Best times to irrigate (morning/evening recommendations)
-- Specific advice for each crop they grow
-- Water conservation tips suitable for their irrigation method
-- Signs to watch for (over-watering/under-watering)
-- Adjustments based on weather forecast
+- **Immediate Action**: Should they water today based on current conditions?
+- **Daily Schedule**: Specific watering times for the next 7 days with reasoning
+- **Water Amount**: How much water to apply (liters per plant/square meter)
+- **Weather Impact**: How current and forecasted weather affects irrigation needs
+- **Crop-Specific Advice**: Tailored recommendations for each crop they grow
+- **Efficiency Tips**: Water conservation strategies based on current weather
+- **Warning Signs**: What to watch for (over-watering/under-watering symptoms)
+- **Weekly Strategy**: Irrigation adjustments based on 7-day weather forecast
 
-Be specific with:
-- Exact watering schedules (times and duration)
-- Water quantities needed per crop
-- Practical tips for their specific irrigation system
-- Cost-saving irrigation strategies
+Be specific with exact watering times, water quantities, and practical tips for their irrigation system.
+Use real weather data to provide precise, actionable irrigation recommendations.
 `;
 
       const result = await textModel.generateContent(irrigationPrompt);
-      const response = result.response.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      
-      // Extract structured data from response
-      const schedule = this.extractWateringSchedule(response);
-      const moistureLevel = this.extractMoistureLevel(response);
-      const waterRequirement = this.extractWaterRequirement(response);
+      const response = result.response.candidates?.[0]?.content?.parts?.[0]?.text || 'Unable to generate irrigation advice';
 
       return {
         advice: response,
         englishText: response,
-        schedule,
-        moistureLevel,
-        waterRequirement,
+        schedule: irrigationAnalysis.schedule,
+        moistureLevel: this.determineMoistureLevel(weatherData),
+        waterRequirement: this.calculateWaterRequirement(weatherData, profile),
+        weatherData: weatherData
       };
     } catch (error) {
       console.error('Irrigation advice error:', error);
@@ -75,58 +92,62 @@ Be specific with:
     }
   }
 
-  private async fetchWeatherData(district: string) {
-    // Mock weather data - replace with real weather API
-    return {
-      current: {
-        temperature: 28,
-        humidity: 65,
-        rainfall: 0,
-        windSpeed: 12
-      },
-      forecast: Array.from({ length: 7 }, (_, i) => ({
-        date: new Date(Date.now() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        temperature: { min: 18 + Math.random() * 5, max: 28 + Math.random() * 8 },
-        rainfall: Math.random() > 0.7 ? Math.random() * 20 : 0,
-        humidity: 60 + Math.random() * 20
-      })),
-      district
-    };
-  }
-
-  private extractWateringSchedule(response: string): string[] {
-    const scheduleLines = response.split('\n').filter(line => 
-      line.includes('AM') || line.includes('PM') || line.includes('morning') || line.includes('evening')
-    );
-    return scheduleLines.length > 0 ? scheduleLines : ['Water early morning (6-8 AM) and evening (6-8 PM)'];
-  }
-
-  private extractMoistureLevel(response: string): string {
-    if (response.toLowerCase().includes('dry') || response.toLowerCase().includes('low moisture')) {
-      return 'Low - Needs immediate watering';
-    } else if (response.toLowerCase().includes('wet') || response.toLowerCase().includes('high moisture')) {
-      return 'High - Reduce watering';
+  private determineMoistureLevel(weatherData: any): string {
+    const { current, forecast } = weatherData;
+    
+    // Calculate moisture level based on recent rainfall and humidity
+    const recentRain = current.rainfall;
+    const humidity = current.humidity;
+    const upcomingRain = forecast.slice(0, 2).reduce((total: number, day: any) => total + day.rainfall, 0);
+    
+    if (recentRain > 10 || upcomingRain > 15) {
+      return 'High - Adequate moisture from recent/upcoming rainfall';
+    } else if (humidity > 70 && recentRain > 2) {
+      return 'Moderate - Good moisture levels, monitor daily';
+    } else if (humidity < 50 && recentRain < 1) {
+      return 'Low - Immediate irrigation needed';
+    } else {
+      return 'Moderate - Regular irrigation schedule recommended';
     }
-    return 'Moderate - Continue regular schedule';
   }
 
-  private extractWaterRequirement(response: string): string {
-    const waterMatch = response.match(/(\d+)\s*(liters?|gallons?|inches?)/i);
-    return waterMatch ? waterMatch[0] : 'Based on crop type and weather conditions';
+  private calculateWaterRequirement(weatherData: any, profile: any): string {
+    const { current } = weatherData;
+    const baseRequirement = 25; // Base liters per square meter
+    
+    // Adjust based on weather conditions
+    let multiplier = 1.0;
+    
+    if (current.temperature > 35) multiplier += 0.3;
+    if (current.temperature < 20) multiplier -= 0.2;
+    if (current.humidity < 40) multiplier += 0.2;
+    if (current.windSpeed > 20) multiplier += 0.15;
+    if (current.rainfall > 5) multiplier -= 0.4;
+    
+    // Adjust based on crop type
+    const primaryCrop = profile.cropsGrown?.[0]?.toLowerCase() || '';
+    if (['rice', 'sugarcane'].includes(primaryCrop)) multiplier += 0.4;
+    if (['onion', 'garlic'].includes(primaryCrop)) multiplier -= 0.2;
+    
+    const adjustedRequirement = Math.max(baseRequirement * multiplier, 10);
+    
+    return `${adjustedRequirement.toFixed(0)} liters per square meter (adjusted for current weather conditions)`;
   }
 
   async getPersonalizedRecommendations(uid: string): Promise<any[]> {
     try {
-      await this.getAdvice(uid);
+      const advice = await this.getAdvice(uid);
       return [
-        'Optimize watering schedule based on weather',
-        'Monitor soil moisture levels regularly',
-        'Consider water conservation techniques'
+        {
+          type: 'irrigation_schedule',
+          priority: 'high',
+          message: 'Today\'s irrigation recommendations ready',
+          data: advice
+        }
       ];
     } catch (error) {
-      console.error('Error getting irrigation recommendations:', error);
+      console.error('Error getting personalized irrigation recommendations:', error);
       return [];
     }
   }
 }
-

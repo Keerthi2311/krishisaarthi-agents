@@ -4,6 +4,7 @@ import { MarketAdvisorAgent } from './marketAgent';
 import { IrrigationAdvisorAgent } from './irrigationAgent';
 import { synthesizeEnglishSpeech } from '../services/tts';
 import { getFirestore } from 'firebase-admin/firestore';
+import { weatherService } from '../services/weather';
 
 export class DailySummaryAgent {
   private profileAgent = new ProfileContextAgent();
@@ -25,7 +26,8 @@ export class DailySummaryAgent {
       const profile = await this.profileAgent.fetchUserProfile(uid);
       if (!profile) throw new Error('User profile not found');
 
-      // Get data from other agents
+      // Get data from other agents and weather service
+      const weatherData = await weatherService.getWeatherData(profile.district || 'Davanagere');
       const marketAdvice = await this.marketAgent.getMarketAdvice(uid);
       const irrigationAdvice = await this.irrigationAgent.getAdvice(uid);
       
@@ -35,6 +37,18 @@ export class DailySummaryAgent {
 ${contextPrompt}
 
 TASK: Create a comprehensive daily farming summary for this farmer.
+
+CURRENT WEATHER CONDITIONS for ${profile.district}:
+- Temperature: ${weatherData.current.temperature.toFixed(1)}°C
+- Humidity: ${weatherData.current.humidity.toFixed(1)}%
+- Recent Rainfall: ${weatherData.current.rainfall.toFixed(1)}mm
+- Weather Condition: ${weatherData.current.condition}
+- Today's Forecast: ${weatherData.forecast[0]?.condition || 'partly cloudy'} with ${weatherData.forecast[0]?.precipitationProbability || 20}% chance of rain
+
+7-DAY WEATHER OUTLOOK:
+${weatherData.forecast.slice(0, 3).map((day, index) => `
+Day ${index + 2}: ${day.condition}, ${day.temperature.min.toFixed(1)}°C-${day.temperature.max.toFixed(1)}°C, ${day.precipitationProbability}% rain chance
+`).join('')}
 
 MARKET INSIGHTS:
 ${marketAdvice.advice}

@@ -1,3 +1,7 @@
+// Load environment variables first, before any other imports
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import express from 'express';
@@ -92,11 +96,15 @@ export const api = functions
   .runWith({
     timeoutSeconds: 300,
     memory: '2GB',
+    secrets: ['GOOGLE_WEATHER_API_KEY']
   })
   .https.onRequest(app);
 
 export const dailySummary = functions
   .region('us-central1')
+  .runWith({
+    secrets: ['GOOGLE_WEATHER_API_KEY']
+  })
   .pubsub.schedule('0 6 * * *')
   .timeZone('Asia/Kolkata')
   .onRun(dailySummaryPush);
